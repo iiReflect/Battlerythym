@@ -5,16 +5,10 @@ iPads can't run a web app straight from the Files app, so it has to be opened **
 address. After that it lives on your Home Screen and works with no signal. Your tasks are stored
 only on the iPad, never on the website.
 
-## Step 1: Put the files at a web address (one time)
-
-**Option A: Let Claude do it (easiest).** Create a free empty repository on github.com
-(for example `battle-rhythm`, Public), then tell Claude in this thread. Claude uploads the files and
-turns on GitHub Pages, and gives you a link like `https://<your-username>.github.io/battle-rhythm/`.
-
-**Option B: Netlify Drop (from a computer, about 2 minutes).**
-1. Unzip `battle-rhythm.zip` into a folder.
-2. Go to https://app.netlify.com/drop and sign up for a free account (so the site stays up).
-3. Drag the folder onto the page. Netlify gives you a link ending in `.netlify.app`.
+## Step 1: Turn on GitHub Pages (one time)
+In this repo on github.com: **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
+branch **main**, folder **/ (root)**, then **Save**. After a minute or two the app is live at
+https://iireflect.github.io/Battlerythym/
 
 ## Step 2: Install it on the iPad
 1. Open the link in **Safari** (it must be Safari).
