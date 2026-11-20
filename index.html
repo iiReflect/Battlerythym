@@ -148,7 +148,7 @@ main{max-width:1180px;margin:0 auto;padding:26px 20px 100px}
 .tag{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:1px 10px 1px 8px;font:600 .78rem/1.5 var(--cond);letter-spacing:.03em;white-space:nowrap;
   color:color-mix(in srgb,var(--c) 82%,var(--ink));background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 30%,transparent)}
 .tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
-.tag.f-daily{--c:var(--navy)} .tag.f-weekly{--c:#7A5AC8} .tag.f-monthly{--c:#1B8F86} .tag.f-quarterly{--c:var(--high)} .tag.f-annual{--c:#C24A86} .tag.f-once{--c:var(--low)}
+.tag.f-daily{--c:var(--navy)} .tag.f-weekly{--c:#7A5AC8} .tag.f-monthly{--c:#1B8F86} .tag.f-quarterly{--c:var(--high)} .tag.f-semiannual{--c:#2E8BB8} .tag.f-annual{--c:#C24A86} .tag.f-once{--c:var(--low)}
 .tag.missed,.tag.overdue{--c:var(--crit)} .tag.missed::before,.tag.overdue::before{border-radius:0;width:9px;height:8px;clip-path:polygon(50% 0,100% 100%,0 100%)}
 .tag.done{--c:var(--ok)}
 .due-today{color:var(--high);font-weight:600}
@@ -350,6 +350,7 @@ textarea{min-height:70px;resize:vertical}
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
           <option value="quarterly">Quarterly</option>
+          <option value="semiannual">Semi-annually</option>
           <option value="annual">Annually</option>
         </select>
       </div>
@@ -441,8 +442,8 @@ textarea{min-height:70px;resize:vertical}
 (function(){
 'use strict';
 const KEY='battleRhythm.v1';
-const FREQ={once:'One time',daily:'Daily',weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',annual:'Annual'};
-const ORDER=['daily','weekly','monthly','quarterly','annual','once'];
+const FREQ={once:'One time',daily:'Daily',weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',semiannual:'Semi-annual',annual:'Annual'};
+const ORDER=['daily','weekly','monthly','quarterly','semiannual','annual','once'];
 const NO_TIME_REMIND='08:00'; // reminders for tasks without a time are based on 08:00 on the due day
 
 /* ---------- date helpers (all local time, dates as YYYY-MM-DD) ---------- */
@@ -464,12 +465,13 @@ function occ(task,n){
     case 'weekly':return addDays(task.anchor,7*n);
     case 'monthly':return addMonths(task.anchor,n);
     case 'quarterly':return addMonths(task.anchor,3*n);
+    case 'semiannual':return addMonths(task.anchor,6*n);
     case 'annual':return addMonths(task.anchor,12*n);
   }
 }
 // smallest n with occ(n) >= date
 function curIndex(task,date){
-  const step={daily:1,weekly:7,monthly:30.44,quarterly:91.31,annual:365.25}[task.freq];
+  const step={daily:1,weekly:7,monthly:30.44,quarterly:91.31,semiannual:182.62,annual:365.25}[task.freq];
   let n=Math.floor(daysBetween(task.anchor,date)/step)-1;
   while(occ(task,n)<date)n++;
   while(occ(task,n-1)>=date)n--;
@@ -483,6 +485,7 @@ function periodStart(freq,ds){
     case 'weekly':d.setDate(d.getDate()-d.getDay());return ymd(d);
     case 'monthly':return ymd(new Date(d.getFullYear(),d.getMonth(),1));
     case 'quarterly':return ymd(new Date(d.getFullYear(),Math.floor(d.getMonth()/3)*3,1));
+    case 'semiannual':return ymd(new Date(d.getFullYear(),d.getMonth()<6?0:6,1));
     case 'annual':return ymd(new Date(d.getFullYear(),0,1));
   }
 }
@@ -493,10 +496,11 @@ function periodEnd(freq,ds){
     case 'weekly':return addDays(periodStart(freq,ds),6);
     case 'monthly':return ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
     case 'quarterly':return ymd(new Date(d.getFullYear(),Math.floor(d.getMonth()/3)*3+3,0));
+    case 'semiannual':return ymd(new Date(d.getFullYear(),d.getMonth()<6?6:12,0));
     case 'annual':return ymd(new Date(d.getFullYear(),11,31));
   }
 }
-const PERIOD_WORD={daily:'day',weekly:'week',monthly:'month',quarterly:'quarter',annual:'year'};
+const PERIOD_WORD={daily:'day',weekly:'week',monthly:'month',quarterly:'quarter',semiannual:'half-year',annual:'year'};
 // window in which a check-off counts for occurrence n: (end of previous occurrence's period, end of this occurrence's period]
 function win(task,n){const due=occ(task,n);return {due,prev:n<=0?'0000-00-00':periodEnd(task.freq,occ(task,n-1)),end:periodEnd(task.freq,due)};}
 // current occurrence = the one whose period hasn't ended yet
@@ -834,8 +838,8 @@ function hintFor(freq,due,time,remind){
   else if(!due)s='Pick the next date this is due. It will repeat from there.';
   else{
     const t={freq,anchor:due};
-    const words={daily:'every day',weekly:'every '+fmtDate(due,{weekday:'long'}),monthly:'on day '+parse(due).getDate()+' of every month',quarterly:'every 3 months from '+fmtDate(due,{day:'numeric',month:'short'}),annual:'every year on '+fmtDate(due,{day:'numeric',month:'long'})};
-    s='Due '+words[freq]+(time?' at '+fmtTime(time):'')+' (next: '+[0,1,2].map(i=>fmtDate(occ(t,i),{day:'numeric',month:'short'})).join(', ')+'). Once checked, it stays checked until the next '+PERIOD_WORD[freq]+' starts'+(freq==='weekly'?' (weeks run Sunday to Saturday)':'')+'.';
+    const words={daily:'every day',weekly:'every '+fmtDate(due,{weekday:'long'}),monthly:'on day '+parse(due).getDate()+' of every month',quarterly:'every 3 months from '+fmtDate(due,{day:'numeric',month:'short'}),semiannual:'every 6 months from '+fmtDate(due,{day:'numeric',month:'short'}),annual:'every year on '+fmtDate(due,{day:'numeric',month:'long'})};
+    s='Due '+words[freq]+(time?' at '+fmtTime(time):'')+' (next: '+[0,1,2].map(i=>fmtDate(occ(t,i),{day:'numeric',month:'short'})).join(', ')+'). Once checked, it stays checked until the next '+PERIOD_WORD[freq]+' starts'+(freq==='weekly'?' (weeks run Sunday to Saturday)':freq==='semiannual'?' (halves are Jan–Jun and Jul–Dec)':'')+'.';
   }
   if(remind>=0&&due)s+=(s?' ':'')+'Reminder '+remindLabel(remind)+(time?'':' (based on '+fmtTime(NO_TIME_REMIND)+' since no time is set)')+'.';
   return s;
@@ -976,7 +980,7 @@ function icsFor(tasks){
     if(t.freq!=='once'){
       const day=parse(t.anchor).getDate();
       const md=day===31?';BYMONTHDAY=-1':'';
-      L.push('RRULE:'+{daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',monthly:'FREQ=MONTHLY'+md,quarterly:'FREQ=MONTHLY;INTERVAL=3'+md,annual:'FREQ=YEARLY'}[t.freq]);
+      L.push('RRULE:'+{daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',monthly:'FREQ=MONTHLY'+md,quarterly:'FREQ=MONTHLY;INTERVAL=3'+md,semiannual:'FREQ=MONTHLY;INTERVAL=6'+md,annual:'FREQ=YEARLY'}[t.freq]);
     }
     if(t.remind>=0){
       const off=t.time?-t.remind:(8*60-t.remind); // all-day events: relative to midnight, so 08:00 base
@@ -1009,6 +1013,7 @@ function recurText(t){
     case 'weekly':return 'Weekly · every '+WD(a);
     case 'monthly':return 'Monthly · '+(day===31?'last day':'the '+ord(day))+' of each month';
     case 'quarterly':{const ms=[0,1,2,3].map(i=>parse(occ(t,i)).toLocaleDateString(undefined,{month:'short'}));return 'Quarterly · '+(day===31?'last day':'the '+ord(day))+' of '+ms.sort((x,y)=>new Date(x+' 1 2000')-new Date(y+' 1 2000')).join(', ');}
+    case 'semiannual':{const ms=[0,1].map(i=>parse(occ(t,i)).toLocaleDateString(undefined,{month:'short'}));return 'Semi-annually · '+(day===31?'last day':'the '+ord(day))+' of '+ms.sort((x,y)=>new Date(x+' 1 2000')-new Date(y+' 1 2000')).join(' and ');}
     case 'annual':return 'Annually · every '+fmtDate(a,{month:'long',day:'numeric'});
   }
 }
