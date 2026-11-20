@@ -20,8 +20,10 @@ https://iireflect.github.io/Battlerythym/
 - **+ Add task**: name it, choose how often it repeats (one time, daily, weekly, monthly, quarterly,
   annually) and its next due date. A weekly task due on a Friday repeats every Friday; a monthly task
   due on the 15th repeats on the 15th, and so on.
-- **Tap the box** to check a task off. Recurring tasks uncheck themselves the day after their due date
-  and move to the next due date. If a period passes without a check, it is logged as "Missed".
+- **Tap the box** to check a task off. A recurring task stays checked until the next day, week
+  (Sunday to Saturday), month, quarter or year begins, then unchecks itself and moves to its next due date.
+  If its due date passes unchecked it shows as overdue for the rest of that period, and if the period ends
+  without a check it is logged as "Missed".
 - Every task shows **"Last done"** with the date and time. **Tap the task name** to edit it and to see
   its full history (every check, uncheck and miss).
 - Use the chips at the top to filter by Daily, Weekly, Monthly and so on.

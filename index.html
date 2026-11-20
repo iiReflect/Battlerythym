@@ -221,8 +221,7 @@ input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-ca
 select{-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23889' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--navy);box-shadow:0 0 0 4px color-mix(in srgb,var(--navy) 18%,transparent)}
 textarea{min-height:70px;resize:vertical}
-.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.row>*{min-width:0}
-@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr);gap:0}}
+.row{display:block}.row>*{display:block;width:100%;min-width:0}
 #editForm{display:flex;flex-direction:column;min-height:0}
 .hint{font-size:.86rem;color:var(--muted);margin-top:8px}
 .hnote{margin:10px 0 0;padding:10px 12px;background:var(--sunk);border-left:3px solid var(--navy);border-radius:0 8px 8px 0;font-size:.9rem}
@@ -415,7 +414,32 @@ function curIndex(task,date){
   while(occ(task,n-1)>=date)n--;
   return n;
 }
-function period(task,today){const n=curIndex(task,today);return {n,due:occ(task,n),prev:occ(task,n-1)};}
+// Checkboxes follow calendar periods: a check stays until the next day / week (Sun-Sat) / month / quarter / year begins.
+function periodStart(freq,ds){
+  const d=parse(ds);
+  switch(freq){
+    case 'daily':return ds;
+    case 'weekly':d.setDate(d.getDate()-d.getDay());return ymd(d);
+    case 'monthly':return ymd(new Date(d.getFullYear(),d.getMonth(),1));
+    case 'quarterly':return ymd(new Date(d.getFullYear(),Math.floor(d.getMonth()/3)*3,1));
+    case 'annual':return ymd(new Date(d.getFullYear(),0,1));
+  }
+}
+function periodEnd(freq,ds){
+  const d=parse(ds);
+  switch(freq){
+    case 'daily':return ds;
+    case 'weekly':return addDays(periodStart(freq,ds),6);
+    case 'monthly':return ymd(new Date(d.getFullYear(),d.getMonth()+1,0));
+    case 'quarterly':return ymd(new Date(d.getFullYear(),Math.floor(d.getMonth()/3)*3+3,0));
+    case 'annual':return ymd(new Date(d.getFullYear(),11,31));
+  }
+}
+const PERIOD_WORD={daily:'day',weekly:'week',monthly:'month',quarterly:'quarter',annual:'year'};
+// window in which a check-off counts for occurrence n: (end of previous occurrence's period, end of this occurrence's period]
+function win(task,n){const due=occ(task,n);return {due,prev:n<=0?'0000-00-00':periodEnd(task.freq,occ(task,n-1)),end:periodEnd(task.freq,due)};}
+// current occurrence = the one whose period hasn't ended yet
+function period(task,today){const n=Math.max(0,curIndex(task,periodStart(task.freq,today)));return {n,...win(task,n)};}
 function fmtDate(s,opts){return parse(s).toLocaleDateString(undefined,opts||{weekday:'short',day:'numeric',month:'short',year:'numeric'});}
 function fmtTime(hm){if(!hm)return '';const [h,m]=hm.split(':').map(Number);return new Date(2000,0,1,h,m).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});}
 function fmtStamp(iso){const d=new Date(iso);return d.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});}
@@ -474,15 +498,15 @@ function rollover(){
   const today=todayStr();let changed=false;
   for(const t of state.tasks){
     if(t.freq==='once')continue;
-    const n=curIndex(t,today);
+    const n=period(t,today).n;
     if(t.seenIndex==null){t.seenIndex=n;changed=true;continue;}
     if(n<=t.seenIndex)continue;
     const dones=doneEntries(t).map(h=>localDay(h.at));
     const from=Math.max(t.seenIndex,n-60);
-    for(let i=from;i<n;i++){
-      const due=occ(t,i),prev=occ(t,i-1);
-      if(due<localDay(t.created))continue;
-      if(!dones.some(d=>d>prev&&d<=due))t.history.push({type:'missed',at:new Date(parse(due).getTime()+86399000).toISOString(),due});
+    for(let i=Math.max(0,from);i<n;i++){
+      const w=win(t,i);
+      if(w.end<localDay(t.created))continue;
+      if(!dones.some(d=>d>w.prev&&d<=w.end))t.history.push({type:'missed',at:new Date(parse(w.end).getTime()+86399000).toISOString(),due:w.due});
     }
     t.history.sort((a,b)=>a.at<b.at?-1:1);
     t.seenIndex=n;changed=true;
@@ -505,7 +529,7 @@ function toggle(id){
       t.history.push({type:'undo',at:now});toast('Unchecked');
     }else{
       t.history.push({type:'done',at:now,due:p.due});
-      toast('Done ✓  Resets after '+fmtDate(p.due,{weekday:'short',day:'numeric',month:'short'}));
+      toast('Done ✓  Stays checked until '+fmtDate(addDays(p.end,1),{weekday:'short',day:'numeric',month:'short'}));
     }
   }
   save();render();
@@ -522,16 +546,16 @@ function occurrencesIn(t,a,b,today){
   }
   const created=localDay(t.created);
   const dones=doneEntries(t).map(h=>localDay(h.at));
-  const cur=curIndex(t,today);
+  const cur=period(t,today).n;
   let n=curIndex(t,a);
   for(let guard=0;guard<400;guard++,n++){
     const date=occ(t,n);if(date>b)break;
-    if(date<created&&n<cur)continue;
-    const prev=occ(t,n-1);
+    if(n<0||(date<created&&n<cur))continue;
+    const w=win(t,n);
     let st;
     if(n>cur)st='open';
-    else if(dones.some(d=>d>prev&&d<=date))st='done';
-    else st=(n<cur)?'missed':'open';
+    else if(dones.some(d=>d>w.prev&&d<=w.end))st='done';
+    else st=(n<cur)?'missed':(date<today?'overdue':'open');
     out.push({t,date,st,current:n===cur});
   }
   return out;
@@ -556,14 +580,15 @@ const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-lineca
 function info(t,today){
   const done=isDone(t,today);
   let due=null,prev=null;
-  if(t.freq==='once')due=t.due||null;else{const p=period(t,today);due=p.due;prev=p.prev;}
-  return {t,done,due,prev,last:lastDone(t)};
+  let end=null;
+  if(t.freq==='once')due=t.due||null;else{const p=period(t,today);due=p.due;prev=p.prev;end=p.end;}
+  return {t,done,due,prev,end,last:lastDone(t)};
 }
 function card(x,today){
   const t=x.t;
   let dueTxt='',dueCls='';
   if(x.due){
-    if(x.done&&t.freq!=='once'){dueTxt='Next reset after '+fmtDate(x.due,{weekday:'short',day:'numeric',month:'short'});}
+    if(x.done&&t.freq!=='once'){dueTxt='Checked for this '+PERIOD_WORD[t.freq]+' · resets '+fmtDate(addDays(x.end,1),{weekday:'short',day:'numeric',month:'short'});}
     else if(x.done){dueTxt='Was due '+fmtDate(x.due);}
     else{dueTxt=relDue(x.due,today,t.time);const d=daysBetween(today,x.due);dueCls=d<0?'overdue-t':d===0?'due-today':'';}
   }else if(!x.done)dueTxt='No due date';
@@ -715,7 +740,7 @@ function hintFor(freq,due,time,remind){
   else{
     const t={freq,anchor:due};
     const words={daily:'every day',weekly:'every '+fmtDate(due,{weekday:'long'}),monthly:'on day '+parse(due).getDate()+' of every month',quarterly:'every 3 months from '+fmtDate(due,{day:'numeric',month:'short'}),annual:'every year on '+fmtDate(due,{day:'numeric',month:'long'})};
-    s='Due '+words[freq]+(time?' at '+fmtTime(time):'')+' (next: '+[0,1,2].map(i=>fmtDate(occ(t,i),{day:'numeric',month:'short'})).join(', ')+'). The checkbox clears automatically once each due date has passed.';
+    s='Due '+words[freq]+(time?' at '+fmtTime(time):'')+' (next: '+[0,1,2].map(i=>fmtDate(occ(t,i),{day:'numeric',month:'short'})).join(', ')+'). Once checked, it stays checked until the next '+PERIOD_WORD[freq]+' starts'+(freq==='weekly'?' (weeks run Sunday to Saturday)':'')+'.';
   }
   if(remind>=0&&due)s+=(s?' ':'')+'Reminder '+remindLabel(remind)+(time?'':' (based on '+fmtTime(NO_TIME_REMIND)+' since no time is set)')+'.';
   return s;
@@ -776,7 +801,7 @@ $('editForm').addEventListener('submit',e=>{
   }else{
     const changed=t.freq!==freq||t.anchor===undefined||(period(t,today).due!==due);
     t.freq=freq;
-    if(changed){t.anchor=due;t.seenIndex=curIndex(t,today);}
+    if(changed){t.anchor=due;t.seenIndex=period(t,today).n;}
     if(wasOnce||t.due!==undefined){delete t.due;t.completedAt=null;}
   }
   save();closeEdit();render();toast(isNew?'Task added':'Saved');
