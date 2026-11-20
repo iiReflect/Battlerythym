@@ -26,6 +26,15 @@ https://iireflect.github.io/Battlerythym/
   its full history (every check, uncheck and miss).
 - Use the chips at the top to filter by Daily, Weekly, Monthly and so on.
 
+- **Calendar** (top right): switch between Day, Week, Month and Year. Use ‹ › to move and Today to jump back.
+  Tap any day to open it, or tap a task to edit it. The filter chips (Daily, Weekly, etc.) work here too.
+  Green means done, blue means still to do, and red means missed or overdue.
+- **Times and reminders**: each task can have a time and a reminder (at due time, 15 min before, 1 day before, and so on).
+  While the app is open, reminders pop up on screen. Turn on notifications in **Settings** to also get iPad notifications.
+  iPad web apps can't wake up when they're closed, so for alerts that always fire, tap
+  **Settings → Add all tasks to iPad Calendar** (or **Add to iPad Calendar** on one task). The iPad Calendar
+  app then handles the alarms offline. Do this again after you add or change tasks.
+
 ## Backups (important)
 Your data lives only on this iPad. If you delete the Home Screen app, the data goes with it.
 Tap **Backup → Export backup** every so often and save the file to Files or iCloud Drive.
