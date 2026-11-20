@@ -52,6 +52,11 @@ Open the menu and tap **Import from a document**. Pick a Word (.docx), Excel (.x
 
 Older .doc and .xls files, Pages and Numbers files, and scanned pictures can't be read. Save or export them as .docx, .xlsx or PDF first.
 
+## Reordering and subtasks
+
+- **Reorder:** on the task list, tap **My order**, then drag a task by its ⠿ handle. The By category view and the Print / PDF list use the same order.
+- **Subtasks:** open a task and add steps under **Subtasks**. Check them off right on the list. When the last one is checked, the task checks itself off. On repeating tasks, subtask checks reset with the task each day, week, month and so on.
+
 ## Backups (important)
 Your data lives only on this iPad. If you delete the Home Screen app, the data goes with it.
 Tap **Backup → Export backup** every so often and save the file to Files or iCloud Drive.

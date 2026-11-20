@@ -112,6 +112,15 @@ nav.side .nv .dot{width:8px;height:8px;border-radius:50%;flex:none;background:cu
 .wdays button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:var(--navy-ink)}
 .wdp{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.wdp .btn{min-height:34px;padding:4px 12px;font-size:.88rem}
 .newcat{display:flex;gap:8px;margin-top:8px}.newcat input{flex:1}
+.fsubs{display:flex;flex-direction:column;gap:6px}.fsubs:empty{display:none}
+.fsub{display:flex;gap:6px;align-items:center}.fsub input{flex:1;min-width:0}
+.fsub .btn{flex:none;min-height:44px;width:44px;padding:0}
+.subs{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.subs li{display:flex;align-items:center;gap:10px;font-size:.93rem}
+.subchk{flex:none;width:30px;height:30px;margin:2px 0;border-radius:7px;border:2px solid color-mix(in srgb,var(--muted) 60%,transparent);background:var(--surface);display:grid;place-items:center;cursor:pointer;padding:0}
+.subchk svg{width:15px;height:15px;stroke:transparent}
+.subchk[aria-pressed="true"]{background:var(--ok);border-color:var(--ok)}.subchk[aria-pressed="true"] svg{stroke:#fff}
+.subs li.sd span{color:var(--muted);text-decoration:line-through}
 .catrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.catrow:first-child{border-top:0}
 .catrow .dot{width:10px;height:10px;border-radius:50%;flex:none}
 .catrow input{flex:1;min-height:40px}
@@ -139,6 +148,13 @@ main{max-width:1180px;margin:0 auto;padding:26px 20px 100px}
 .ghead em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}
 .ghead.crit{box-shadow:inset 4px 0 var(--crit)} .ghead.high{box-shadow:inset 4px 0 var(--high)} .ghead.ok{box-shadow:inset 4px 0 var(--ok)}
 .task{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-top:1px solid var(--line);transition:background .15s}
+.task .body{flex:1;min-width:0}
+.grip{flex:none;align-self:center;width:44px;height:44px;margin:-6px -8px -6px 0;border:0;background:none;color:var(--muted);display:grid;place-items:center;cursor:grab;touch-action:none;border-radius:10px;padding:0}
+.grip svg{width:22px;height:22px}
+.grip:active{cursor:grabbing}
+.task.dragging{position:relative;z-index:5;background:var(--surface);box-shadow:var(--sh-3);border-radius:12px;outline:2px solid var(--gold)}
+body.dragging-on{user-select:none;-webkit-user-select:none}
+.orderhint{margin:-6px 0 14px;color:var(--muted);font-size:.9rem}
 .ghead+.task,.list>.task:first-child{border-top:0}
 .task:hover{background:color-mix(in srgb,var(--navy) 5%,var(--surface))}
 .task.done .title{text-decoration:line-through;color:var(--muted)}
@@ -351,7 +367,7 @@ textarea{min-height:70px;resize:vertical}
     <div class="calhead">
       <div><h2 id="listTitle">Overview</h2><p class="lead" id="listLead" style="margin:0">Tap a box to check it off, tap a task to edit it or see its history.</p></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn" id="printBtn">Print / PDF</button>
-      <div class="seg" id="groupSeg"><button data-group="due">By due date</button><button data-group="cat">By category</button></div></div>
+      <div class="seg" id="groupSeg"><button data-group="due">By due date</button><button data-group="cat">By category</button><button data-group="mine">My order</button></div></div>
     </div>
     <div class="stats" id="summary"></div>
     <div id="sections"></div>
@@ -423,6 +439,9 @@ textarea{min-height:70px;resize:vertical}
       <input type="text" id="fCatNew" placeholder="New category name, e.g. Maintenance" autocapitalize="words">
       <button type="button" class="btn primary" id="fCatAdd">Add</button>
     </div>
+    <label for="fSubNew">Subtasks (optional)</label>
+    <div id="fSubs" class="fsubs"></div>
+    <div class="newcat"><input type="text" id="fSubNew" placeholder="Add a subtask, e.g. Sign the log"><button type="button" class="btn" id="fSubAdd">Add</button></div>
     <label for="fNotes">Notes (optional)</label>
     <textarea id="fNotes" placeholder="Who, where, reference, etc."></textarea>
     <div id="histWrap" hidden>
@@ -769,7 +788,22 @@ function info(t,today){
   if(t.freq==='once')due=t.due||null;else{const p=period(t,today);due=p.due;prev=p.prev;end=p.end;}
   return {t,done,due,prev,end,last:lastDone(t)};
 }
-function card(x,today){
+/* ---------- subtasks: checks reset with the task's own period ---------- */
+function subKey(t,today){return t.freq==='once'?'once':period(t,today).due;}
+function subDone(t,s,today){return !!s.doneFor&&s.doneFor===subKey(t,today);}
+function subCount(t,today){const L=t.subs||[];if(!L.length)return '';const n=L.filter(s=>subDone(t,s,today)).length;return '<span class="tag" style="--c:'+(n===L.length?'var(--ok)':'var(--low)')+'">'+n+'/'+L.length+' subtasks</span>';}
+function subList(t,today){const L=t.subs||[];if(!L.length)return '';
+  return '<ul class="subs">'+L.map(s=>{const d=subDone(t,s,today);return '<li'+(d?' class="sd"':'')+'><button class="subchk" data-sub="'+t.id+'|'+s.id+'" aria-pressed="'+d+'" aria-label="'+(d?'Uncheck ':'Check off ')+esc(s.title)+'">'+CHECK+'</button><span>'+esc(s.title)+'</span></li>';}).join('')+'</ul>';}
+function toggleSub(tid,sid){
+  const t=state.tasks.find(x=>x.id===tid);if(!t||!t.subs)return;const s=t.subs.find(x=>x.id===sid);if(!s)return;
+  const today=todayStr();const key=subKey(t,today);
+  if(s.doneFor===key){s.doneFor=null;s.at=null;save();render();return;}
+  s.doneFor=key;s.at=new Date().toISOString();
+  if(t.subs.every(x=>x.doneFor===key)&&!isDone(t,today)){save();toggle(t.id);toast('All subtasks done, so the task is checked off');return;}
+  save();render();
+}
+const GRIP='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+function card(x,today,grip){
   const t=x.t;
   let dueTxt='',dueCls='';
   if(x.due){
@@ -779,15 +813,15 @@ function card(x,today){
   }else if(!x.done)dueTxt='No due date';
   const last=x.last?'Last done '+fmtStamp(x.last)+' ('+ago(x.last)+')':'Never done';
   const rem=t.remind>=0&&x.due?'<span>⏰ '+remindLabel(t.remind)+'</span>':'';
-  return '<div class="task'+(x.done?' done':'')+'">'+
+  return '<div class="task'+(x.done?' done':'')+'" data-id="'+t.id+'">'+
     '<button class="check" data-toggle="'+t.id+'" aria-label="'+(x.done?'Uncheck ':'Check off ')+esc(t.title)+'">'+CHECK+'</button>'+
     '<div class="body" data-edit="'+t.id+'">'+
       '<div class="title">'+esc(t.title)+'</div>'+
-      '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+freqLabel(t)+'</span>'+
+      '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+freqLabel(t)+'</span>'+subCount(t,today)+
       (dueTxt?'<span class="'+dueCls+'">'+dueTxt+'</span>':'')+rem+
       '<span class="mono">'+last+'</span></div>'+
-      (t.notes?'<div class="notes">'+esc(t.notes)+'</div>':'')+
-    '</div></div>';
+      (t.notes?'<div class="notes">'+esc(t.notes)+'</div>':'')+subList(t,today)+
+    '</div>'+(grip?'<button class="grip" data-grip="'+t.id+'" aria-label="Drag to move '+esc(t.title)+'">'+GRIP+'</button>':'')+'</div>';
 }
 function renderChips(all){
   const open=all.filter(x=>!x.done);
@@ -830,19 +864,21 @@ function renderList(allTasks,today){
     ['Done this period|ok',shown.filter(x=>x.done&&x.t.freq!=='once').sort(by)],
     ['Completed one-time tasks',shown.filter(x=>x.done&&x.t.freq==='once').sort((a,b)=>a.t.completedAt<b.t.completedAt?1:-1)]
   ];
-  if(groupBy==='cat'){
-    // one card per category; open tasks first (by due date), checked ones at the bottom
-    const order=x=>(x.done?'1':'0')+key(x);
+  if(groupBy==='cat'||groupBy==='mine'){
+    // one card per category, in your own order. "By category" puts checked tasks at the bottom; "My order" leaves everything where you put it.
+    const pos=new Map(state.tasks.map((t,i)=>[t,i]));
+    const order=(a,b)=>groupBy==='cat'&&a.done!==b.done?(a.done?1:-1):pos.get(a.t)-pos.get(b.t);
     const byCat={};for(const x of shown){const c=(x.t.cat||'').trim();(byCat[c]=byCat[c]||[]).push(x);}
     const names=Object.keys(byCat).sort((a,b)=>!a?1:!b?-1:a.localeCompare(b));
     groups.length=0;
-    for(const c of names)groups.push([(c||'No category')+'|cat:'+c,byCat[c].sort((a,b)=>order(a)<order(b)?-1:order(a)>order(b)?1:a.t.title.localeCompare(b.t.title))]);
+    for(const c of names)groups.push([(c||'No category')+'|cat:'+c,byCat[c].sort(order)]);
   }
   document.querySelectorAll('#groupSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.group===groupBy));
-  const html=groups.filter(g=>g[1].length).map(([h,items])=>{const i=h.indexOf('|');const name=i<0?h:h.slice(0,i),cls=i<0?'':h.slice(i+1);
+  let html=groups.filter(g=>g[1].length).map(([h,items])=>{const i=h.indexOf('|');const name=i<0?h:h.slice(0,i),cls=i<0?'':h.slice(i+1);
     const isCat=cls.startsWith('cat:');const c=isCat?cls.slice(4):'';
     const open=items.filter(x=>!x.done).length;
-    return '<div class="group"><div class="ghead'+(isCat?'" style="box-shadow:inset 4px 0 '+(c?catColor(c):'var(--line)'):' '+cls)+'">'+esc(name)+'<em>'+(isCat?open+' open · '+items.length+' total':items.length+(items.length===1?' task':' tasks'))+'</em>'+(isCat?'<button class="gpdf" data-printcat="'+esc(c||NOCAT)+'">Print / PDF</button>':'')+'</div>'+items.map(x=>card(x,today)).join('')+'</div>';}).join('');
+    return '<div class="group"><div class="ghead'+(isCat?'" style="box-shadow:inset 4px 0 '+(c?catColor(c):'var(--line)'):' '+cls)+'">'+esc(name)+'<em>'+(isCat?open+' open · '+items.length+' total':items.length+(items.length===1?' task':' tasks'))+'</em>'+(isCat?'<button class="gpdf" data-printcat="'+esc(c||NOCAT)+'">Print / PDF</button>':'')+'</div>'+items.map(x=>card(x,today,groupBy==='mine')).join('')+'</div>';}).join('');
+  if(html&&groupBy==='mine')html='<p class="orderhint">Drag the ⠿ handle to move a task up or down within its category. The By category view and printouts use the same order.</p>'+html;
   $('sections').innerHTML=html||'<div class="empty">'+(state.tasks.length?'Nothing in this view.':'No tasks yet. Tap “+ Add task” to build your battle rhythm, or <button class="btn" data-openimport style="margin-left:4px">Import from a document</button>')+'</div>';
 }
 const DOW=[0,1,2,3,4,5,6].map(i=>new Date(2023,0,1+i).toLocaleDateString(undefined,{weekday:'short'}));
@@ -979,6 +1015,7 @@ function openEdit(id,date){
   $('fTitle').value=editing?editing.title:'';
   $('fFreq').value=editing?editing.freq:(filter!=='all'?filter:'once');
   $('fNotes').value=editing?(editing.notes||''):'';
+  formSubs=editing&&editing.subs?editing.subs.map(x=>({...x})):[];paintSubs();$('fSubNew').value='';
   fillCatSelect($('fCat'),editing?(editing.cat||''):(catFilter!=='all'&&catFilter!==NOCAT?catFilter:''));
   $('fTime').value=editing?(editing.time||''):'';
   $('fRemind').value=String(editing&&editing.remind!=null?editing.remind:-1);
@@ -996,6 +1033,13 @@ function openEdit(id,date){
   $('editScrim').classList.add('open');
   if(!editing)setTimeout(()=>$('fTitle').focus(),50);
 }
+let formSubs=[];
+function paintSubs(){$('fSubs').innerHTML=formSubs.map((x,i)=>'<div class="fsub"><input type="text" data-si="'+i+'" value="'+esc(x.title)+'" aria-label="Subtask '+(i+1)+'"><button type="button" class="btn" data-sdel="'+i+'" aria-label="Remove subtask">✕</button></div>').join('');}
+function addSubFromBox(){const v=$('fSubNew').value.trim();if(!v)return;formSubs.push({id:uid(),title:v,doneFor:null});$('fSubNew').value='';paintSubs();$('fSubNew').focus();}
+$('fSubAdd').onclick=addSubFromBox;
+$('fSubNew').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addSubFromBox();}});
+$('fSubs').addEventListener('input',e=>{const i=e.target.dataset.si;if(i!=null)formSubs[i].title=e.target.value;});
+$('fSubs').addEventListener('click',e=>{const b=e.target.closest('[data-sdel]');if(b){formSubs.splice(Number(b.dataset.sdel),1);paintSubs();}});
 function closeEdit(){$('editScrim').classList.remove('open');editing=null;}
 $('fFreq').addEventListener('change',()=>{if($('fFreq').value!=='once'&&!$('fDue').value)$('fDue').value=todayStr();updateHint();});
 ['fDue','fTime','fRemind'].forEach(id=>{$(id).addEventListener('change',updateHint);$(id).addEventListener('input',updateHint);});
@@ -1020,6 +1064,8 @@ $('editForm').addEventListener('submit',e=>{
   if(!t){t={id:uid(),created:new Date().toISOString(),history:[],completedAt:null};state.tasks.push(t);}
   const wasOnce=t.freq==='once';
   t.title=title;t.notes=notes;t.time=time;t.remind=remind;
+  if($('fSubNew').value.trim())addSubFromBox();
+  {const subs=formSubs.map(x=>({...x,title:x.title.trim()})).filter(x=>x.title);if(subs.length)t.subs=subs;else delete t.subs;}
   {let c=$('fCat').value;if(c==='__new')c=addCat($('fCatNew').value)||'';t.cat=c;}
   if(freq==='once'){
     t.freq='once';t.due=due||null;delete t.anchor;delete t.seenIndex;
@@ -1196,7 +1242,7 @@ function exportData(cat,count){
     else{const p=period(t,today);for(let i=0;i<count;i++)dates.push(occ(t,p.n+i));status=x.done?'Done this '+PERIOD_WORD[t.freq]:(p.due<today?'Overdue':'Open');}
     return {t,recur:recurText(t),time:milTime(t.time),dates:dates.map(milDate),
       last:x.last?milStamp(x.last):'Never',status,sortDue:dates[0]||'9999'};
-  }).sort((a,b)=>rank(a.t.freq)-rank(b.t.freq)||(a.sortDue<b.sortDue?-1:a.sortDue>b.sortDue?1:a.t.title.localeCompare(b.t.title)));
+  }).sort((a,b)=>rank(a.t.freq)-rank(b.t.freq)||state.tasks.indexOf(a.t)-state.tasks.indexOf(b.t));
   const title=cat==='all'?'All categories':cat===NOCAT?'No category':cat;
   return {rows,title,today};
 }
@@ -1219,7 +1265,7 @@ $('pPrint').onclick=()=>{
   h+='<div class="ps-sum">'+esc(summaryLine(rows))+'</div><table><thead><tr><th>#</th><th>Task</th><th>Recurrence</th><th>Time</th><th>Due dates</th><th>Last completed</th><th>Status</th><th>Init.</th></tr></thead><tbody>';
   let sec=null,i=0;
   for(const r of rows){if(r.t.freq!==sec){sec=r.t.freq;h+='<tr class="sec"><td colspan="8">'+FREQ[sec]+'</td></tr>';}
-    h+='<tr><td>'+(++i)+'</td><td><b>'+esc(r.t.title)+'</b>'+(title==='All categories'&&r.t.cat?' <span class="nt">['+esc(r.t.cat)+']</span>':'')+(r.t.notes?'<div class="nt"><i>Notes: '+esc(r.t.notes)+'</i></div>':'')+'</td><td>'+esc(r.recur)+'</td><td class="mono">'+esc(r.time)+'</td><td class="mono">'+(r.dates.join('<br>')||'—')+'</td><td class="mono">'+esc(r.last)+'</td><td class="st-'+(r.status==='Overdue'?'overdue':/Done|Completed/.test(r.status)?'done':'')+'">'+esc(r.status)+'</td><td style="width:50px"></td></tr>';}
+    h+='<tr><td>'+(++i)+'</td><td><b>'+esc(r.t.title)+'</b>'+(title==='All categories'&&r.t.cat?' <span class="nt">['+esc(r.t.cat)+']</span>':'')+(r.t.subs&&r.t.subs.length?'<div class="nt">Subtasks: '+r.t.subs.map(x=>'☐ '+esc(x.title)).join(' &nbsp; ')+'</div>':'')+(r.t.notes?'<div class="nt"><i>Notes: '+esc(r.t.notes)+'</i></div>':'')+'</td><td>'+esc(r.recur)+'</td><td class="mono">'+esc(r.time)+'</td><td class="mono">'+(r.dates.join('<br>')||'—')+'</td><td class="mono">'+esc(r.last)+'</td><td class="st-'+(r.status==='Overdue'?'overdue':/Done|Completed/.test(r.status)?'done':'')+'">'+esc(r.status)+'</td><td style="width:50px"></td></tr>';}
   h+='</tbody></table>';
   $('printSheet').innerHTML=h;$('printScrim').classList.remove('open');
   setTimeout(()=>window.print(),300);
@@ -1247,7 +1293,8 @@ async function buildPdf(cat,count){
     if(r.t.freq!==sec){sec=r.t.freq;body.push([{content:FREQ[sec].toUpperCase(),colSpan:8,styles:{fillColor:[247,236,206],textColor:[110,74,0],fontStyle:'bold',fontSize:8}}]);}
     const name=r.t.title+(cat==='all'&&r.t.cat?'  ['+r.t.cat+']':'');
     const row=[String(++i),name,r.recur,r.time,r.dates.join('\n')||'—',r.last,r.status,''];
-    if(r.t.notes){row.hasNotes=true;body.push(row);body.push(['',{content:'Notes: '+r.t.notes,colSpan:7,styles:{fontStyle:'italic',fontSize:7.8,textColor:[88,102,116],cellPadding:{top:0,bottom:6,left:5,right:5}}}]);}
+    const extra=[(r.t.subs&&r.t.subs.length?'Subtasks: '+r.t.subs.map(x=>'[  ] '+x.title).join('   '):''),(r.t.notes?'Notes: '+r.t.notes:'')].filter(Boolean).join('\n');
+    if(extra){row.hasNotes=true;body.push(row);body.push(['',{content:extra,colSpan:7,styles:{fontStyle:'italic',fontSize:7.8,textColor:[88,102,116],cellPadding:{top:0,bottom:6,left:5,right:5}}}]);}
     else body.push(row);
   }
   doc.autoTable({startY:M+76,rowPageBreak:'avoid',margin:{left:M,right:M,top:M+62,bottom:36},head:[['#','Task','Recurrence','Time','Due dates','Last completed','Status','Init.']],body,
@@ -1336,6 +1383,7 @@ let toastTimer;
 function toast(m){const el=$('toast');el.textContent=m;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2200);}
 document.addEventListener('click',e=>{
   if(e.target.closest('.scrim'))return;
+  const sb=e.target.closest('[data-sub]');if(sb){e.stopPropagation();const [a,b]=sb.dataset.sub.split('|');toggleSub(a,b);return;}
   const tg=e.target.closest('[data-toggle]');if(tg){toggle(tg.dataset.toggle);return;}
   const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openEdit(ed.dataset.edit);return;}
   if(e.target.closest('[data-managecats]')){openCats();return;}
@@ -1366,6 +1414,41 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController)tryReload();});
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{});});}).catch(()=>{});
 }
+
+
+/* ---------- drag to reorder (My order view) ---------- */
+(function(){
+  let drag=null;
+  $('sections').addEventListener('pointerdown',e=>{
+    const g=e.target.closest('[data-grip]');if(!g||e.button>0)return;
+    const el=g.closest('.task');const group=el.closest('.group');
+    e.preventDefault();g.setPointerCapture(e.pointerId);
+    drag={el,group,grip:g,id:e.pointerId,y:e.clientY,moved:false,timer:null};
+    el.classList.add('dragging');document.body.classList.add('dragging-on');
+    drag.timer=setInterval(()=>{if(!drag)return;const edge=70;if(drag.y<edge)window.scrollBy(0,-12);else if(drag.y>innerHeight-edge)window.scrollBy(0,12);move(drag.y);},30);
+  });
+  function move(y){
+    const items=[...drag.group.querySelectorAll('.task')].filter(t=>t!==drag.el);
+    for(const t of items){const r=t.getBoundingClientRect();
+      if(y>r.top&&y<r.bottom){const mid=r.top+r.height/2;
+        if(y<mid&&t.previousElementSibling!==drag.el){t.before(drag.el);drag.moved=true;}
+        else if(y>=mid&&t.nextElementSibling!==drag.el){t.after(drag.el);drag.moved=true;}
+        break;}}
+  }
+  $('sections').addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;drag.y=e.clientY;move(e.clientY);});
+  function end(e){
+    if(!drag||(e&&e.pointerId!==drag.id))return;
+    clearInterval(drag.timer);drag.el.classList.remove('dragging');document.body.classList.remove('dragging-on');
+    const ids=[...drag.group.querySelectorAll('.task[data-id]')].map(t=>t.dataset.id);const moved=drag.moved;drag=null;
+    if(!moved)return;
+    // put these tasks back into the same slots of the master list, in their new order
+    const byId=new Map(state.tasks.map(t=>[t.id,t]));
+    const slots=ids.map(id=>state.tasks.indexOf(byId.get(id))).sort((a,b)=>a-b);
+    slots.forEach((slot,i)=>{state.tasks[slot]=byId.get(ids[i]);});
+    save();render();
+  }
+  $('sections').addEventListener('pointerup',end);$('sections').addEventListener('pointercancel',end);
+})();
 
 /* ---------- import from a document ---------- */
 let imp=null; // {name, items:[...]}
