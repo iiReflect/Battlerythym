@@ -46,6 +46,12 @@ https://iireflect.github.io/Battlerythym/
   category, then **Download PDF** (share sheet: Save to Files, Mail, Print) or **Print**. The list shows each task's
   recurrence, time, upcoming due dates, last completion, status, and a blank initials column.
 
+## Importing your current battle rhythm
+
+Open the menu and tap **Import from a document**. Pick a Word (.docx), Excel (.xlsx), PDF, CSV or text file, or paste the text. The app lists every task it finds and guesses how often each one repeats, the day, the time and the next due date. Tick the tasks you want, fix anything it got wrong, pick a category, then tap **Import**. "Change all selected tasks at once" sets the repeat, start date or category for many tasks together. The file is read on the iPad only and is not uploaded.
+
+Older .doc and .xls files, Pages and Numbers files, and scanned pictures can't be read. Save or export them as .docx, .xlsx or PDF first.
+
 ## Backups (important)
 Your data lives only on this iPad. If you delete the Home Screen app, the data goes with it.
 Tap **Backup → Export backup** every so often and save the file to Files or iCloud Drive.

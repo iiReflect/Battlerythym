@@ -249,6 +249,28 @@ textarea{min-height:70px;resize:vertical}
 .hint{font-size:.86rem;color:var(--muted);margin-top:8px}
 .hnote{margin:10px 0 0;padding:10px 12px;background:var(--sunk);border-left:3px solid var(--navy);border-radius:0 8px 8px 0;font-size:.9rem}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sheet.wide{max-width:940px}
+.impsum{padding:10px 14px;background:var(--sunk);border-radius:10px;border-left:3px solid var(--gold);font-size:.92rem}
+.impbulk{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:4px 14px 12px}
+.impbulk summary{cursor:pointer;font:600 1rem var(--cond);letter-spacing:.02em;padding:8px 0 0;list-style-position:inside}
+.impbulkgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.impb{display:flex;gap:6px;align-items:center}.impb>:first-child{flex:1;min-width:0}.impb .btn{flex:none;min-height:44px}
+.improw{display:flex;gap:12px;padding:14px 0 12px;border-top:1px solid var(--line)}
+#impRows{margin-top:12px;border-bottom:1px solid var(--line)}
+.improw.off .impmain{opacity:.5}
+.improw.bad{background:color-mix(in srgb,var(--crit) 7%,transparent);box-shadow:inset 3px 0 0 var(--crit);padding-left:8px}
+.impchk{flex:none;margin:0;padding-top:8px}
+.impchk input{width:26px;height:26px;margin:0;accent-color:var(--navy);cursor:pointer}
+.impmain{flex:1;min-width:0}
+.impmain input[data-k=title]{font-weight:600}
+.impsrc{font-size:.8rem;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.impgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 10px}
+.impgrid label{margin-top:8px}
+.impflags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.impflags:empty{display:none}
+.impnote{font-size:.82rem;color:var(--muted);margin-top:6px;white-space:pre-line}
+.wdays.sm{margin-top:8px}.wdays.sm button{min-height:34px;font-size:.85rem}
+@media (max-width:820px){.impgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.impbulkgrid{grid-template-columns:1fr}}
+@media (max-width:440px){.impgrid{grid-template-columns:1fr}}
 .hist{list-style:none;padding:0;margin:6px 0 0;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .hist li{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-top:1px solid var(--line);font-size:.9rem}
 .hist li:first-child{border-top:0}
@@ -319,6 +341,7 @@ textarea{min-height:70px;resize:vertical}
   <div id="chips" style="display:contents"></div>
   <div class="navsep"></div>
   <button class="nv" id="printNavBtn">Print / PDF</button>
+  <button class="nv" data-openimport>Import from a document</button>
   <button class="nv" id="menuBtn">Settings &amp; backup</button>
 </nav>
 <div class="navscrim" id="navScrim" hidden></div>
@@ -435,6 +458,9 @@ textarea{min-height:70px;resize:vertical}
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
     <p class="hint" id="lastBackup"></p>
+    <h4>Import tasks</h4>
+    <p class="hint">Bring in tasks from the battle rhythm you already have in Word, Excel, PDF or plain text. You pick which tasks to add and how often each repeats.</p>
+    <div class="acts"><button class="btn" data-openimport>Import from a document</button></div>
   </div>
   <div class="dfoot"><span class="spacer"></span><button class="btn" id="menuClose">Close</button></div>
 </div></div>
@@ -460,6 +486,32 @@ textarea{min-height:70px;resize:vertical}
     <p class="hint">On iPad, <b>Download PDF</b> opens the share sheet: pick Save to Files, Mail, or Print.</p>
   </div>
   <div class="dfoot"><button class="btn" id="pClose">Cancel</button><span class="spacer"></span><button class="btn" id="pPrint">Print</button><button class="btn primary" id="pPdf">Download PDF</button></div>
+</div></div>
+<div class="scrim" id="impScrim"><div class="sheet wide" role="dialog" aria-modal="true">
+  <div class="dhead"><h3>Import from a document</h3></div>
+  <div class="dbody" id="impPick">
+    <p class="hint">Pick your current battle rhythm and the app lists the tasks it finds. You choose which ones to bring in, how often each repeats, when it starts and its category. The file is read on this device only. Nothing is uploaded.</p>
+    <div class="acts"><button type="button" class="btn primary" id="impFileBtn">Choose a file</button>
+    <input type="file" id="impFile" accept=".docx,.xlsx,.xlsm,.pdf,.csv,.tsv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain" hidden></div>
+    <p class="hint">Works with Word (.docx), Excel (.xlsx), PDF, CSV and text files. Tables, bulleted lists and weekly calendar grids are all understood. On iPad, files in iCloud Drive, OneDrive, Teams or email attachments saved to Files can be picked.</p>
+    <h4>Or paste the text</h4>
+    <textarea id="impText" rows="6" placeholder="Paste rows copied from Word, Excel, Teams or an email"></textarea>
+    <div class="acts"><button type="button" class="btn" id="impTextBtn">Find tasks in the pasted text</button></div>
+    <p class="hint" id="impMsg" role="status"></p>
+  </div>
+  <div class="dbody" id="impReview" hidden>
+    <div class="impsum" id="impSum"></div>
+    <details class="impbulk" id="impBulk"><summary>Change all selected tasks at once</summary>
+      <div class="impbulkgrid">
+        <div><label for="impBFreq">Repeats</label><div class="impb"><select id="impBFreq"></select><button type="button" class="btn" data-bulk="freq">Apply</button></div></div>
+        <div><label for="impBDue">Start / due date</label><div class="impb"><div class="field-wrap"><input type="date" id="impBDue"></div><button type="button" class="btn" data-bulk="due">Apply</button></div></div>
+        <div><label for="impBCat">Category</label><div class="impb"><select id="impBCat"></select><button type="button" class="btn" data-bulk="cat">Apply</button></div></div>
+      </div>
+    </details>
+    <div class="acts"><button type="button" class="btn" id="impAll">Select all</button><button type="button" class="btn" id="impNone">Select none</button></div>
+    <div id="impRows"></div>
+  </div>
+  <div class="dfoot"><button type="button" class="btn" id="impCancel">Cancel</button><button type="button" class="btn" id="impBack" hidden>Start over</button><span class="spacer"></span><button type="button" class="btn primary" id="impGo" hidden>Import</button></div>
 </div></div>
 <div id="printSheet" aria-hidden="true"></div>
 
@@ -791,7 +843,7 @@ function renderList(allTasks,today){
     const isCat=cls.startsWith('cat:');const c=isCat?cls.slice(4):'';
     const open=items.filter(x=>!x.done).length;
     return '<div class="group"><div class="ghead'+(isCat?'" style="box-shadow:inset 4px 0 '+(c?catColor(c):'var(--line)'):' '+cls)+'">'+esc(name)+'<em>'+(isCat?open+' open · '+items.length+' total':items.length+(items.length===1?' task':' tasks'))+'</em>'+(isCat?'<button class="gpdf" data-printcat="'+esc(c||NOCAT)+'">Print / PDF</button>':'')+'</div>'+items.map(x=>card(x,today)).join('')+'</div>';}).join('');
-  $('sections').innerHTML=html||'<div class="empty">'+(state.tasks.length?'Nothing in this view.':'No tasks yet. Tap “+ Add task” to build your battle rhythm.')+'</div>';
+  $('sections').innerHTML=html||'<div class="empty">'+(state.tasks.length?'Nothing in this view.':'No tasks yet. Tap “+ Add task” to build your battle rhythm, or <button class="btn" data-openimport style="margin-left:4px">Import from a document</button>')+'</div>';
 }
 const DOW=[0,1,2,3,4,5,6].map(i=>new Date(2023,0,1+i).toLocaleDateString(undefined,{weekday:'short'}));
 function weekStart(s){const d=parse(s);d.setDate(d.getDate()-d.getDay());return ymd(d);}
@@ -1287,6 +1339,7 @@ document.addEventListener('click',e=>{
   const tg=e.target.closest('[data-toggle]');if(tg){toggle(tg.dataset.toggle);return;}
   const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openEdit(ed.dataset.edit);return;}
   if(e.target.closest('[data-managecats]')){openCats();return;}
+  if(e.target.closest('[data-openimport]')){openImport();return;}
   const pc=e.target.closest('[data-printcat]');if(pc){e.stopPropagation();openPrint(pc.dataset.printcat);return;}
   const ct=e.target.closest('[data-cat]');if(ct){catFilter=ct.dataset.cat;saveUi();render();if(isNarrow())setNav(false);return;}
   const gb=e.target.closest('[data-group]');if(gb){groupBy=gb.dataset.group;saveUi();render();return;}
@@ -1313,6 +1366,132 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController)tryReload();});
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{});});}).catch(()=>{});
 }
+
+/* ---------- import from a document ---------- */
+let imp=null; // {name, items:[...]}
+function openImport(){
+  if(isNarrow())setNav(false);$('menuScrim').classList.remove('open');
+  imp=null;$('impPick').hidden=false;$('impReview').hidden=true;$('impGo').hidden=true;$('impBack').hidden=true;$('impMsg').textContent='';
+  $('impScrim').classList.add('open');$('impScrim').querySelector('.sheet').scrollTop=0;
+}
+function closeImport(){$('impScrim').classList.remove('open');imp=null;$('impFile').value='';}
+async function impLib(){if(!window.BRImport)await loadScript('importer.js');return window.BRImport;}
+async function impRun(getRows,name){
+  $('impMsg').textContent='Reading '+name+'…';
+  try{
+    const L=await impLib();const rows=await getRows(L);const found=L.extract(rows,todayStr());
+    if(!found.length){$('impMsg').textContent='No tasks were found in '+name+'. If it is a scanned picture, the text can\'t be read. Try copying the text and pasting it below.';return;}
+    impShow(found,name);
+  }catch(e){$('impMsg').textContent=(e&&e.message)||'That file could not be read.';}
+}
+function impShow(found,name){
+  const have=new Set(state.tasks.map(t=>t.title.trim().toLowerCase()));const today=todayStr();
+  const catByLow=new Map(cats().map(c=>[c.toLowerCase(),c]));
+  const fallbackCat=catFilter!=='all'&&catFilter!==NOCAT?catFilter:'';
+  imp={name,items:found.map(f=>{
+    const dup=have.has(f.title.toLowerCase());
+    let cat=f.cat?(catByLow.get(f.cat.toLowerCase())||f.cat):(f.section&&catByLow.get(f.section.toLowerCase()))||fallbackCat;
+    const words=f.title.split(/\s+/).length;
+    const on=!dup&&words<=14&&(f.freq&&f.freq!=='once'||(f.freq==='once'&&f.due&&!f.dueGuessed));
+    return {...f,cat,dup,on:!!on,due:f.due||(f.freq&&f.freq!=='once'?today:'')};
+  })};
+  $('impPick').hidden=true;$('impReview').hidden=false;$('impGo').hidden=false;$('impBack').hidden=false;
+  $('impBFreq').innerHTML=Object.keys(FREQ).filter(k=>k!=='once').concat('once').map(k=>'<option value="'+k+'">'+FREQ[k]+'</option>').join('');
+  $('impBDue').value=today;$('impBulk').open=false;
+  impRender();$('impScrim').querySelector('.sheet').scrollTop=0;
+}
+function impCatOptions(val){
+  const list=cats();const extra=[];
+  for(const it of imp.items){for(const c of [it.cat,it.section])if(c&&!list.some(x=>x.toLowerCase()===c.toLowerCase())&&!extra.some(x=>x.toLowerCase()===c.toLowerCase()))extra.push(c);}
+  return '<option value="">No category</option>'+list.map(c=>'<option value="'+esc(c)+'"'+(c===val?' selected':'')+'>'+esc(c)+'</option>').join('')
+    +extra.map(c=>'<option value="'+esc(c)+'"'+(c===val?' selected':'')+'>'+esc(c)+' (new)</option>').join('')+'<option value="__new">+ New category…</option>';
+}
+const IMP_ORDER=['daily','weekly','monthly','quarterly','semiannual','annual','once'];
+function impRowHtml(it,i){
+  const fo='<option value=""'+(it.freq?'':' selected')+'>Choose…</option>'+IMP_ORDER.map(k=>'<option value="'+k+'"'+(it.freq===k?' selected':'')+'>'+FREQ[k]+'</option>').join('');
+  const days=it.days&&it.days.length?it.days:[0,1,2,3,4,5,6];
+  const flags=[];
+  if(it.dup)flags.push('<span class="tag" style="--c:var(--low)">Already in your app</span>');
+  if(it.dueGuessed)flags.push('<span class="tag" style="--c:var(--high)">No date in the document: check the start date</span>');
+  if(!it.freq)flags.push('<span class="tag" style="--c:var(--high)">Pick how often it repeats</span>');
+  return '<div class="improw'+(it.on?'':' off')+'" data-i="'+i+'">'
+    +'<label class="impchk"><input type="checkbox" data-k="on"'+(it.on?' checked':'')+' aria-label="Import this task"></label>'
+    +'<div class="impmain"><input type="text" data-k="title" value="'+esc(it.title)+'" aria-label="Task name">'
+    +(it.src&&it.src.toLowerCase()!==it.title.toLowerCase()||it.section?'<div class="impsrc">'+(it.section?'<b>'+esc(it.section)+'</b>'+(it.src?' · ':''):'')+(it.src?'“'+esc(it.src)+'”':'')+'</div>':'')
+    +'<div class="impgrid">'
+    +'<div><label>Repeats</label><select data-k="freq">'+fo+'</select></div>'
+    +'<div><label>'+(it.freq==='once'?'Due date':'Starts / next due')+'</label><div class="field-wrap"><input type="date" data-k="due" value="'+esc(it.due||'')+'"></div></div>'
+    +'<div><label>Time</label><div class="field-wrap"><input type="time" data-k="time" value="'+esc(it.time||'')+'"></div></div>'
+    +'<div><label>Category</label><select data-k="cat">'+impCatOptions(it.cat)+'</select></div>'
+    +'</div>'
+    +'<div class="wdays sm" data-k="days"'+(it.freq==='daily'?'':' hidden')+'>'+[1,2,3,4,5,6,0].map(d=>'<button type="button" data-wd="'+d+'" aria-pressed="'+days.includes(d)+'">'+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]+'</button>').join('')+'</div>'
+    +'<div class="impflags">'+flags.join('')+'</div>'
+    +(it.notes?'<div class="impnote">'+esc(it.notes)+'</div>':'')
+    +'</div></div>';
+}
+function impRender(){
+  $('impRows').innerHTML=imp.items.map(impRowHtml).join('');
+  $('impBCat').innerHTML=impCatOptions('');impSummary();
+}
+function impSummary(){
+  const n=imp.items.filter(i=>i.on).length;const g=imp.items.filter(i=>i.on&&i.dueGuessed).length;
+  $('impSum').innerHTML='Found <b>'+imp.items.length+'</b> task'+(imp.items.length===1?'':'s')+' in <b>'+esc(imp.name)+'</b>. <b>'+n+'</b> selected. Check the name, how often it repeats, the next due date and the category, then tap Import.'+(g?' '+g+' selected task'+(g===1?' has':'s have')+' no date in the document, so '+(g===1?'it starts':'they start')+' today unless you change it.':'');
+  $('impGo').textContent=n?'Import '+n+' task'+(n===1?'':'s'):'Import';$('impGo').disabled=!n;
+}
+function impPickNewCat(sel,apply){
+  const name=prompt('Name of the new category');const c=name&&name.trim()?name.trim().replace(/\s+/g,' '):'';
+  if(c){const ex=cats().find(x=>x.toLowerCase()===c.toLowerCase());apply(ex||c);}else sel.value='';
+}
+$('impRows').addEventListener('input',e=>{
+  const row=e.target.closest('.improw');if(!row)return;const it=imp.items[row.dataset.i];const k=e.target.dataset.k;
+  if(k==='title'||k==='due'||k==='time'){it[k]=e.target.value;if(k==='due')it.dueGuessed=false;}
+});
+$('impRows').addEventListener('change',e=>{
+  const row=e.target.closest('.improw');if(!row)return;const i=Number(row.dataset.i);const it=imp.items[i];const k=e.target.dataset.k;
+  if(k==='on'){it.on=e.target.checked;row.classList.toggle('off',!it.on);row.classList.remove('bad');impSummary();}
+  else if(k==='freq'){it.freq=e.target.value;if(it.freq&&it.freq!=='once'&&!it.due)it.due=todayStr();if(!it.on){it.on=true;}row.outerHTML=impRowHtml(it,i);impSummary();}
+  else if(k==='cat'){if(e.target.value==='__new')impPickNewCat(e.target,c=>{it.cat=c;impRender();});else it.cat=e.target.value;}
+  else if(k==='due'||k==='time'){it[k]=e.target.value;if(k==='due'){it.dueGuessed=false;}}
+});
+$('impRows').addEventListener('click',e=>{
+  const b=e.target.closest('[data-wd]');if(!b)return;const row=b.closest('.improw');const it=imp.items[row.dataset.i];
+  const on=b.getAttribute('aria-pressed')!=='true';const set=new Set(it.days&&it.days.length?it.days:[0,1,2,3,4,5,6]);
+  if(on)set.add(Number(b.dataset.wd));else{if(set.size<=1)return;set.delete(Number(b.dataset.wd));}
+  b.setAttribute('aria-pressed',String(on));it.days=set.size===7?null:[...set].sort();
+});
+$('impAll').onclick=()=>{imp.items.forEach(i=>i.on=true);impRender();};
+$('impNone').onclick=()=>{imp.items.forEach(i=>i.on=false);impRender();};
+$('impBCat').addEventListener('change',e=>{if(e.target.value==='__new')impPickNewCat(e.target,c=>{for(const it of imp.items)if(it.on)it.cat=c;impRender();toast('Category set for selected tasks');});});
+$('impReview').addEventListener('click',e=>{
+  const b=e.target.closest('[data-bulk]');if(!b)return;const k=b.dataset.bulk;const sel=imp.items.filter(i=>i.on);
+  if(!sel.length){toast('Select some tasks first');return;}
+  if(k==='freq'){const v=$('impBFreq').value;for(const it of sel){it.freq=v;if(v!=='daily')it.days=null;if(v!=='once'&&!it.due)it.due=todayStr();}}
+  if(k==='due'){const v=$('impBDue').value;if(!v){toast('Pick a date first');return;}for(const it of sel){it.due=v;it.dueGuessed=false;}}
+  if(k==='cat'){const v=$('impBCat').value;if(v==='__new')return;for(const it of sel)it.cat=v;}
+  impRender();toast(({freq:'Repeat',due:'Date',cat:'Category'})[k]+' set for '+sel.length+' task'+(sel.length===1?'':'s'));
+});
+$('impGo').onclick=()=>{
+  const sel=imp.items.filter(i=>i.on);let bad=0;
+  $('impRows').querySelectorAll('.improw.bad').forEach(r=>r.classList.remove('bad'));
+  imp.items.forEach((it,i)=>{if(!it.on)return;if(!it.title.trim()||!it.freq||(it.freq!=='once'&&!it.due)){bad++;$('impRows').querySelector('[data-i="'+i+'"]').classList.add('bad');}});
+  if(bad){const first=$('impRows').querySelector('.improw.bad');first.scrollIntoView({block:'center',behavior:'smooth'});toast(bad+' task'+(bad===1?' needs':'s need')+' a name, how often it repeats, or a start date');return;}
+  const today=todayStr();
+  for(const it of sel){
+    const t={id:uid(),created:new Date().toISOString(),history:[],completedAt:null,title:it.title.trim(),notes:(it.notes||'').trim(),time:it.time||'',remind:-1};
+    t.cat=it.cat?addCat(it.cat)||'':'';
+    if(it.freq==='once'){t.freq='once';t.due=it.due||null;}
+    else{const days=it.freq==='daily'&&it.days&&it.days.length&&it.days.length<7?it.days.slice():null;t.freq=it.freq;if(days)t.days=days;t.anchor=snapToDays(it.due,days);t.seenIndex=period(t,today).n;}
+    state.tasks.push(t);
+  }
+  save();closeImport();render();toast('Imported '+sel.length+' task'+(sel.length===1?'':'s'));checkReminders();
+};
+$('impFileBtn').onclick=()=>$('impFile').click();
+$('impFile').addEventListener('change',()=>{const f=$('impFile').files[0];if(f)impRun(L=>L.readFile(f),f.name);});
+$('impTextBtn').onclick=()=>{const t=$('impText').value;if(!t.trim()){$('impMsg').textContent='Paste some text first.';return;}impRun(L=>L.readText(t),'the pasted text');};
+$('impCancel').onclick=closeImport;
+$('menuScrim').addEventListener('click',e=>{if(e.target.closest('[data-openimport]'))openImport();});
+$('impBack').onclick=()=>{imp=null;$('impFile').value='';openImport();};
+
 window.__BR={state:()=>state,occ,period,curIndex,rollover,render,isDone,icsFor,checkReminders};
 })();
 </script>
