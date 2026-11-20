@@ -1,5 +1,5 @@
 // Offline cache for Battle Rhythm. Bump VERSION when files change.
-const VERSION='br-v4';
+const VERSION='br-v5';
 const FILES=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png','fonts.css','fonts/Barlow-400.woff2','fonts/Barlow-500.woff2','fonts/Barlow-600.woff2','fonts/Barlow-700.woff2','fonts/BarlowCondensed-500.woff2','fonts/BarlowCondensed-600.woff2','fonts/BarlowCondensed-700.woff2','fonts/IBMPlexMono-400.woff2','fonts/IBMPlexMono-500.woff2','fonts/IBMPlexMono-600.woff2'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

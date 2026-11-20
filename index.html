@@ -58,6 +58,7 @@ body{color:var(--ink);font:15px/1.5 var(--font);-webkit-font-smoothing:antialias
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   transition:padding-left .3s cubic-bezier(.2,.9,.25,1)}
 button,input,select,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
 :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 h2{font:600 1.45rem/1.2 var(--cond);margin:0 0 2px;letter-spacing:.01em}
 .lead{color:var(--muted);margin:0 0 18px;max-width:70ch}
@@ -70,7 +71,8 @@ h2{font:600 1.45rem/1.2 var(--cond);margin:0 0 2px;letter-spacing:.01em}
 .menubtn svg{width:20px;height:20px}
 .menubtn .l{transition:transform .25s,opacity .2s;transform-origin:center}
 body.navopen .menubtn .l1{transform:translateY(6px) rotate(45deg)} body.navopen .menubtn .l2{opacity:0} body.navopen .menubtn .l3{transform:translateY(-6px) rotate(-45deg)}
-.brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.brand{display:flex;align-items:center;gap:12px;min-width:200px;flex:1 1 260px}
+.brand>div:last-child{min-width:0}
 .mark{width:34px;height:34px;flex:none;border-radius:10px;background:var(--navy);color:var(--navy-ink);display:grid;place-items:center;box-shadow:0 6px 16px -4px color-mix(in srgb,var(--navy) 70%,transparent)}
 .mark svg{width:20px;height:20px}
 .mark.logo{width:42px;height:42px;background:none;overflow:hidden;border-radius:11px;box-shadow:0 6px 16px -4px color-mix(in srgb,var(--navy) 70%,transparent),0 0 0 1px rgba(255,255,255,.12)}
@@ -211,10 +213,17 @@ main{max-width:1180px;margin:0 auto;padding:26px 20px 100px}
 .dfoot{display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--surface)}
 .dfoot .spacer{flex:1}
 label{display:block;font-size:.8rem;color:var(--muted);margin:12px 0 4px;font-weight:500}
-input[type=text],input[type=date],input[type=time],select,textarea{width:100%;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);background:var(--sunk);border-radius:10px;padding:9px 11px;min-height:44px;color:var(--ink)}
+input[type=text],input[type=date],input[type=time],select,textarea{display:block;width:100%;max-width:100%;min-width:0;margin:0;border:1px solid var(--line);background:var(--sunk);border-radius:10px;padding:9px 11px;min-height:44px;color:var(--ink);font-size:16px;line-height:1.4}
+/* iPad Safari: date/time boxes ignore width and overflow into the next box unless their native look is turned off */
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;height:44px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;min-height:1.4em;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=time]::-webkit-calendar-picker-indicator{opacity:.6}
+select{-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23889' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px}
 input:focus,select:focus,textarea:focus{outline:0;border-color:var(--navy);box-shadow:0 0 0 4px color-mix(in srgb,var(--navy) 18%,transparent)}
 textarea{min-height:70px;resize:vertical}
-.row{display:flex;gap:10px}.row>*{flex:1;min-width:0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.row>*{min-width:0}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr);gap:0}}
+#editForm{display:flex;flex-direction:column;min-height:0}
 .hint{font-size:.86rem;color:var(--muted);margin-top:8px}
 .hnote{margin:10px 0 0;padding:10px 12px;background:var(--sunk);border-left:3px solid var(--navy);border-radius:0 8px 8px 0;font-size:.9rem}
 .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -225,9 +234,9 @@ textarea{min-height:70px;resize:vertical}
 .hist .k-done{color:var(--ok);font-weight:600}
 .hist .k-missed{color:var(--crit);font-weight:600}
 .hist .k-undo{color:var(--muted)}
-.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:var(--sh-3)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));max-width:calc(100% - 200px);transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;box-shadow:var(--sh-3)}
 .toast.show{opacity:1}
-.alerts{position:fixed;top:calc(env(safe-area-inset-top) + 14px);left:50%;transform:translateX(-50%);z-index:45;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100% - 24px))}
+.alerts{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 92px);left:50%;transform:translateX(-50%);z-index:35;display:flex;flex-direction:column;gap:8px;width:min(520px,calc(100% - 24px))}
 .alert{display:flex;gap:12px;align-items:center;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--high);border-radius:12px;padding:10px 12px;box-shadow:var(--sh-3)}
 .alert b{display:block;font:600 1.05rem var(--cond)}
 .alert .x{margin-left:auto}
@@ -284,7 +293,7 @@ textarea{min-height:70px;resize:vertical}
 <div class="alerts" id="alerts"></div>
 
 <div class="scrim" id="editScrim"><div class="sheet" role="dialog" aria-modal="true">
-  <form id="editForm" autocomplete="off" style="display:contents">
+  <form id="editForm" autocomplete="off">
   <div class="dhead"><h3 id="editTitle">Add task</h3></div>
   <div class="dbody">
     <label for="fTitle">Task</label>
