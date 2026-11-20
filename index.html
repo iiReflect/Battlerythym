@@ -107,6 +107,10 @@ nav.side .nv[aria-selected="true"]{background:var(--navy);color:var(--navy-ink);
 nav.side .nv .n{margin-left:auto;font:500 .78rem var(--mono);opacity:.85}
 nav.side .nv .dot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor;opacity:.6}
 .navsep{flex:none;height:1px;background:rgba(255,255,255,.1);margin:6px 4px}
+.wdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.wdays button{min-height:44px;border:1px solid var(--line);background:var(--sunk);border-radius:10px;font:600 .95rem var(--cond);letter-spacing:.02em;color:var(--muted);cursor:pointer;padding:0}
+.wdays button[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:var(--navy-ink)}
+.wdp{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.wdp .btn{min-height:34px;padding:4px 12px;font-size:.88rem}
 .newcat{display:flex;gap:8px;margin-top:8px}.newcat input{flex:1}
 .catrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.catrow:first-child{border-top:0}
 .catrow .dot{width:10px;height:10px;border-radius:50%;flex:none}
@@ -351,13 +355,18 @@ textarea{min-height:70px;resize:vertical}
         <label for="fFreq">Repeats</label>
         <select id="fFreq">
           <option value="once">One time</option>
-          <option value="daily">Daily</option>
+          <option value="daily">Daily / chosen days</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
           <option value="quarterly">Quarterly</option>
           <option value="semiannual">Semi-annually</option>
           <option value="annual">Annually</option>
         </select>
+        <div id="fDaysWrap" hidden>
+          <label>Repeat on</label>
+          <div class="wdays" id="fDays"><button type="button" data-wd="1" aria-pressed="true">Mon</button><button type="button" data-wd="2" aria-pressed="true">Tue</button><button type="button" data-wd="3" aria-pressed="true">Wed</button><button type="button" data-wd="4" aria-pressed="true">Thu</button><button type="button" data-wd="5" aria-pressed="true">Fri</button><button type="button" data-wd="6" aria-pressed="true">Sat</button><button type="button" data-wd="0" aria-pressed="true">Sun</button></div>
+          <div class="wdp"><button type="button" class="btn" data-wdp="all">Every day</button><button type="button" class="btn" data-wdp="wk">Weekdays</button><button type="button" class="btn" data-wdp="we">Weekends</button></div>
+        </div>
       </div>
       <div>
         <label for="fDue" id="fDueLabel">Due date</label>
@@ -477,9 +486,23 @@ function addMonths(s,n){
   t.setDate(Math.min(d,last));return ymd(t);
 }
 function daysBetween(a,b){return Math.round((parse(b)-parse(a))/864e5);}
+// chosen repeat days (daily tasks): t.days = [0..6] (Sun..Sat); missing or all 7 = every day
+const DAYS3=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function hasDays(t){return t.freq==='daily'&&Array.isArray(t.days)&&t.days.length>0&&t.days.length<7;}
+function dayOffsets(t){if(!hasDays(t))return null;const a=parse(t.anchor).getDay();return [...new Set(t.days)].map(d=>(d-a+7)%7).sort((x,y)=>x-y);}
+function snapToDays(ds,days){if(!days||!days.length||days.length===7)return ds;for(let i=0;i<7;i++){const d=addDays(ds,i);if(days.includes(parse(d).getDay()))return d;}return ds;}
+function daysLabel(days){
+  if(!days||!days.length||days.length===7)return 'Every day';
+  const s=[...days].sort().join('');
+  if(s==='12345')return 'Weekdays';if(s==='06')return 'Weekends';
+  return [1,2,3,4,5,6,0].filter(d=>days.includes(d)).map(d=>DAYS3[d]).join(', ');
+}
+function freqLabel(t){return hasDays(t)?daysLabel(t.days):FREQ[t.freq];}
 function occ(task,n){
   switch(task.freq){
-    case 'daily':return addDays(task.anchor,n);
+    case 'daily':{
+      const offs=dayOffsets(task);if(!offs)return addDays(task.anchor,n);
+      const k=offs.length,w=Math.floor(n/k),r=n-w*k;return addDays(task.anchor,7*w+offs[r]);}
     case 'weekly':return addDays(task.anchor,7*n);
     case 'monthly':return addMonths(task.anchor,n);
     case 'quarterly':return addMonths(task.anchor,3*n);
@@ -489,7 +512,7 @@ function occ(task,n){
 }
 // smallest n with occ(n) >= date
 function curIndex(task,date){
-  const step={daily:1,weekly:7,monthly:30.44,quarterly:91.31,semiannual:182.62,annual:365.25}[task.freq];
+  const step={daily:dayOffsets(task)?7/dayOffsets(task).length:1,weekly:7,monthly:30.44,quarterly:91.31,semiannual:182.62,annual:365.25}[task.freq];
   let n=Math.floor(daysBetween(task.anchor,date)/step)-1;
   while(occ(task,n)<date)n++;
   while(occ(task,n-1)>=date)n--;
@@ -708,7 +731,7 @@ function card(x,today){
     '<button class="check" data-toggle="'+t.id+'" aria-label="'+(x.done?'Uncheck ':'Check off ')+esc(t.title)+'">'+CHECK+'</button>'+
     '<div class="body" data-edit="'+t.id+'">'+
       '<div class="title">'+esc(t.title)+'</div>'+
-      '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+FREQ[t.freq]+'</span>'+
+      '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+freqLabel(t)+'</span>'+
       (dueTxt?'<span class="'+dueCls+'">'+dueTxt+'</span>':'')+rem+
       '<span class="mono">'+last+'</span></div>'+
       (t.notes?'<div class="notes">'+esc(t.notes)+'</div>':'')+
@@ -841,7 +864,7 @@ function dayCard(o,today){
   return '<div class="task'+(o.st==='done'?' done':'')+'">'+
     (canCheck?'<button class="check" data-toggle="'+t.id+'" aria-label="Check off '+esc(t.title)+'">'+CHECK+'</button>':'<span class="check ghost" title="Only the current period can be checked">'+(o.st==='done'?CHECK:'')+'</span>')+
     '<div class="body" data-edit="'+t.id+'"><div class="title">'+esc(t.title)+'</div>'+
-    '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+FREQ[t.freq]+'</span><span class="tag '+(o.st==='done'?'done':(o.st==='missed'||o.st==='overdue'||(o.st==='open'&&o.date<today))?'missed':'')+'"'+(o.st==='open'&&o.date>=today?' style="--c:var(--navy)"':'')+'>'+stTxt+'</span>'+
+    '<div class="meta">'+catTag(t.cat)+'<span class="tag f-'+t.freq+'">'+freqLabel(t)+'</span><span class="tag '+(o.st==='done'?'done':(o.st==='missed'||o.st==='overdue'||(o.st==='open'&&o.date<today))?'missed':'')+'"'+(o.st==='open'&&o.date>=today?' style="--c:var(--navy)"':'')+'>'+stTxt+'</span>'+
     (t.time?'<span class="mono">'+fmtTime(t.time)+'</span>':'<span>Any time</span>')+
     (t.remind>=0?'<span>⏰ '+remindLabel(t.remind)+'</span>':'')+
     '<span class="mono">'+(last?'Last done '+fmtStamp(last):'Never done')+'</span></div>'+
@@ -875,15 +898,25 @@ function hintFor(freq,due,time,remind){
   if(freq==='once')s=due?'':'Leave the date empty if there is no deadline.';
   else if(!due)s='Pick the next date this is due. It will repeat from there.';
   else{
-    const t={freq,anchor:due};
-    const words={daily:'every day',weekly:'every '+fmtDate(due,{weekday:'long'}),monthly:'on day '+parse(due).getDate()+' of every month',quarterly:'every 3 months from '+fmtDate(due,{day:'numeric',month:'short'}),semiannual:'every 6 months from '+fmtDate(due,{day:'numeric',month:'short'}),annual:'every year on '+fmtDate(due,{day:'numeric',month:'long'})};
+    const days=freq==='daily'?formDaysArr():null;
+    const t={freq,anchor:freq==='daily'?snapToDays(due,days):due,days};
+    const dl=daysLabel(days);
+    const words={daily:dl==='Every day'?'every day':'on '+(dl==='Weekdays'?'weekdays (Mon–Fri)':dl==='Weekends'?'weekends (Sat & Sun)':dl),weekly:'every '+fmtDate(due,{weekday:'long'}),monthly:'on day '+parse(due).getDate()+' of every month',quarterly:'every 3 months from '+fmtDate(due,{day:'numeric',month:'short'}),semiannual:'every 6 months from '+fmtDate(due,{day:'numeric',month:'short'}),annual:'every year on '+fmtDate(due,{day:'numeric',month:'long'})};
     s='Due '+words[freq]+(time?' at '+fmtTime(time):'')+' (next: '+[0,1,2].map(i=>fmtDate(occ(t,i),{day:'numeric',month:'short'})).join(', ')+'). Once checked, it stays checked until the next '+PERIOD_WORD[freq]+' starts'+(freq==='weekly'?' (weeks run Sunday to Saturday)':freq==='semiannual'?' (halves are Jan–Jun and Jul–Dec)':'')+'.';
   }
   if(remind>=0&&due)s+=(s?' ':'')+'Reminder '+remindLabel(remind)+(time?'':' (based on '+fmtTime(NO_TIME_REMIND)+' since no time is set)')+'.';
   return s;
 }
+let formDays=new Set([0,1,2,3,4,5,6]);
+function formDaysArr(){return [...formDays].sort();}
+function paintDays(){document.querySelectorAll('#fDays [data-wd]').forEach(b=>b.setAttribute('aria-pressed',formDays.has(Number(b.dataset.wd))));}
+$('fDays').addEventListener('click',e=>{const b=e.target.closest('[data-wd]');if(!b)return;const d=Number(b.dataset.wd);
+  if(formDays.has(d)){if(formDays.size===1){toast('Pick at least one day');return;}formDays.delete(d);}else formDays.add(d);paintDays();updateHint();});
+document.querySelector('.wdp').addEventListener('click',e=>{const b=e.target.closest('[data-wdp]');if(!b)return;
+  formDays=new Set({all:[0,1,2,3,4,5,6],wk:[1,2,3,4,5],we:[0,6]}[b.dataset.wdp]);paintDays();updateHint();});
 function updateHint(){
   const f=$('fFreq').value;
+  $('fDaysWrap').hidden=f!=='daily';
   $('fDueLabel').textContent=f==='once'?'Due date':'Next due date';
   $('fHint').textContent=hintFor(f,$('fDue').value,$('fTime').value,Number($('fRemind').value));
 }
@@ -897,6 +930,7 @@ function openEdit(id,date){
   fillCatSelect($('fCat'),editing?(editing.cat||''):(catFilter!=='all'&&catFilter!==NOCAT?catFilter:''));
   $('fTime').value=editing?(editing.time||''):'';
   $('fRemind').value=String(editing&&editing.remind!=null?editing.remind:-1);
+  formDays=new Set(editing&&Array.isArray(editing.days)&&editing.days.length?editing.days:[0,1,2,3,4,5,6]);paintDays();
   if(editing)$('fDue').value=editing.freq==='once'?(editing.due||''):period(editing,today).due;
   else $('fDue').value=date||($('fFreq').value==='once'?'':today);
   $('delBtn').hidden=!editing;
@@ -938,9 +972,12 @@ $('editForm').addEventListener('submit',e=>{
   if(freq==='once'){
     t.freq='once';t.due=due||null;delete t.anchor;delete t.seenIndex;
   }else{
-    const changed=t.freq!==freq||t.anchor===undefined||(period(t,today).due!==due);
+    const newDays=freq==='daily'&&formDays.size<7?formDaysArr():null;
+    const daysChanged=JSON.stringify(t.days||null)!==JSON.stringify(newDays);
+    const changed=t.freq!==freq||t.anchor===undefined||daysChanged||(period(t,today).due!==due);
     t.freq=freq;
-    if(changed){t.anchor=due;t.seenIndex=period(t,today).n;}
+    if(newDays)t.days=newDays;else delete t.days;
+    if(changed){t.anchor=snapToDays(due,newDays);t.seenIndex=period(t,today).n;}
     if(wasOnce||t.due!==undefined){delete t.due;t.completedAt=null;}
   }
   save();closeEdit();render();toast(isNew?'Task added':'Saved');
@@ -1018,7 +1055,8 @@ function icsFor(tasks){
     if(t.freq!=='once'){
       const day=parse(t.anchor).getDate();
       const md=day===31?';BYMONTHDAY=-1':'';
-      L.push('RRULE:'+{daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',monthly:'FREQ=MONTHLY'+md,quarterly:'FREQ=MONTHLY;INTERVAL=3'+md,semiannual:'FREQ=MONTHLY;INTERVAL=6'+md,annual:'FREQ=YEARLY'}[t.freq]);
+      if(hasDays(t))L.push('RRULE:FREQ=WEEKLY;BYDAY='+t.days.map(d=>['SU','MO','TU','WE','TH','FR','SA'][d]).join(','));
+      else L.push('RRULE:'+{daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',monthly:'FREQ=MONTHLY'+md,quarterly:'FREQ=MONTHLY;INTERVAL=3'+md,semiannual:'FREQ=MONTHLY;INTERVAL=6'+md,annual:'FREQ=YEARLY'}[t.freq]);
     }
     if(t.remind>=0){
       const off=t.time?-t.remind:(8*60-t.remind); // all-day events: relative to midnight, so 08:00 base
@@ -1084,7 +1122,7 @@ function recurText(t){
   const a=t.anchor,day=parse(a).getDate();
   const ord=n=>n+(['th','st','nd','rd'][(n%100-20)%10]||['th','st','nd','rd'][n%100]||'th');
   switch(t.freq){
-    case 'daily':return 'Daily · every day';
+    case 'daily':return hasDays(t)?'Daily · '+(daysLabel(t.days)==='Weekdays'?'weekdays (Mon–Fri)':daysLabel(t.days)==='Weekends'?'weekends (Sat, Sun)':daysLabel(t.days)+' only'):'Daily · every day';
     case 'weekly':return 'Weekly · every '+WD(a);
     case 'monthly':return 'Monthly · '+(day===31?'last day':'the '+ord(day))+' of each month';
     case 'quarterly':{const ms=[0,1,2,3].map(i=>parse(occ(t,i)).toLocaleDateString(undefined,{month:'short'}));return 'Quarterly · '+(day===31?'last day':'the '+ord(day))+' of '+ms.sort((x,y)=>new Date(x+' 1 2000')-new Date(y+' 1 2000')).join(', ');}

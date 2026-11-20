@@ -37,7 +37,9 @@ https://iireflect.github.io/Battlerythym/
   **Settings → Add all tasks to iPad Calendar** (or **Add to iPad Calendar** on one task). The iPad Calendar
   app then handles the alarms offline. Do this again after you add or change tasks.
 
-- **Categories**: type a category on any task (e.g. Maintenance, Admin). The side menu lists your categories so you
+- **Chosen days**: pick **Daily / chosen days**, then tap the days it repeats on (or Weekdays / Weekends / Every day).
+  It only appears, and only counts as missed, on those days.
+- **Categories**: create them under **+ New / edit categories** in the side menu (or "+ New category…" in the task box), then pick one from the drop-down on each task. The side menu lists your categories so you
   can view one at a time, or tap **All categories** to see everything. On the Overview, **By category** shows every
   category on one page.
 - **Print / PDF**: tap **Print / PDF** (top of the Overview, in the side menu, or on each category's header), pick a
