@@ -107,6 +107,11 @@ nav.side .nv[aria-selected="true"]{background:var(--navy);color:var(--navy-ink);
 nav.side .nv .n{margin-left:auto;font:500 .78rem var(--mono);opacity:.85}
 nav.side .nv .dot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor;opacity:.6}
 .navsep{flex:none;height:1px;background:rgba(255,255,255,.1);margin:6px 4px}
+.newcat{display:flex;gap:8px;margin-top:8px}.newcat input{flex:1}
+.catrow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.catrow:first-child{border-top:0}
+.catrow .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.catrow input{flex:1;min-height:40px}
+.catrow .n{font:500 .8rem var(--mono);color:var(--muted);white-space:nowrap}
 .navhint{padding:4px 12px 8px;color:var(--hdr-muted);font-size:.8rem;line-height:1.35;opacity:.85}
 .navlbl{flex:none;padding:8px 12px 4px;color:var(--hdr-muted);font:600 .68rem var(--font);letter-spacing:.12em;text-transform:uppercase;opacity:.8}
 .navscrim{position:fixed;inset:0;z-index:29;background:rgba(8,14,20,.45);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
@@ -381,8 +386,11 @@ textarea{min-height:70px;resize:vertical}
     </div>
     <div class="hnote" id="fHint"></div>
     <label for="fCat">Category (optional)</label>
-    <input type="text" id="fCat" list="catList" placeholder="e.g. Admin, Maintenance, Training" autocapitalize="words">
-    <datalist id="catList"></datalist>
+    <select id="fCat"></select>
+    <div id="fCatNewWrap" class="newcat" hidden>
+      <input type="text" id="fCatNew" placeholder="New category name, e.g. Maintenance" autocapitalize="words">
+      <button type="button" class="btn primary" id="fCatAdd">Add</button>
+    </div>
     <label for="fNotes">Notes (optional)</label>
     <textarea id="fNotes" placeholder="Who, where, reference, etc."></textarea>
     <div id="histWrap" hidden>
@@ -422,6 +430,16 @@ textarea{min-height:70px;resize:vertical}
   <div class="dfoot"><span class="spacer"></span><button class="btn" id="menuClose">Close</button></div>
 </div></div>
 
+<div class="scrim" id="catScrim"><div class="sheet" role="dialog" aria-modal="true">
+  <div class="dhead"><h3>Categories</h3></div>
+  <div class="dbody">
+    <p class="hint">Create a category here, then pick it from the drop-down when you add or edit a task. Edit a name to rename it everywhere.</p>
+    <div class="newcat"><input type="text" id="catNewName" placeholder="New category name" autocapitalize="words"><button type="button" class="btn primary" id="catNewBtn">Add</button></div>
+    <h4>Your categories</h4>
+    <div id="catRows"></div>
+  </div>
+  <div class="dfoot"><span class="spacer"></span><button class="btn" id="catClose">Done</button></div>
+</div></div>
 <div class="scrim" id="printScrim"><div class="sheet" role="dialog" aria-modal="true">
   <div class="dhead"><h3>Print or save a PDF</h3></div>
   <div class="dbody">
@@ -545,6 +563,7 @@ function load(){
   try{state=JSON.parse(localStorage.getItem(KEY))||null;}catch(e){state=null;}
   if(!state||!Array.isArray(state.tasks))state={version:1,tasks:[],lastBackup:null};
   if(!state.fired)state.fired={};
+  normCats(state);
 }
 function save(){
   try{localStorage.setItem(KEY,JSON.stringify(state));}
@@ -638,7 +657,26 @@ function byDate(a,b){
 let filter='all',catFilter='all',groupBy='due',view='list',calMode='month',cursor=todayStr();
 try{const v=JSON.parse(localStorage.getItem(KEY+'.ui')||'{}');if(v.view)view=v.view;if(v.calMode)calMode=v.calMode;if(v.filter)filter=v.filter;if(v.catFilter)catFilter=v.catFilter;if(v.groupBy)groupBy=v.groupBy;}catch(e){}
 const NOCAT='__none';
-function cats(){return [...new Set(state.tasks.map(t=>(t.cat||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));}
+// categories are created first (side menu or the task box), then picked from a drop-down on each task
+function normCats(st){
+  const list=Array.isArray(st.categories)?st.categories:[];
+  for(const t of st.tasks){const c=(t.cat||'').trim();if(c)t.cat=c;}
+  const all=[...list,...st.tasks.map(t=>t.cat||'')].map(c=>String(c).trim()).filter(Boolean);
+  const seen=new Map();for(const c of all){const k=c.toLowerCase();if(!seen.has(k))seen.set(k,c);}
+  for(const t of st.tasks){if(t.cat){const c=seen.get(t.cat.toLowerCase());if(c)t.cat=c;}}
+  st.categories=[...seen.values()].sort((a,b)=>a.localeCompare(b));
+}
+function cats(){return state.categories.slice();}
+function addCat(name){
+  name=String(name||'').trim().replace(/\s+/g,' ');if(!name)return null;
+  const ex=state.categories.find(c=>c.toLowerCase()===name.toLowerCase());if(ex)return ex;
+  state.categories.push(name);state.categories.sort((a,b)=>a.localeCompare(b));save();return name;
+}
+function fillCatSelect(sel,val){
+  $('fCat').innerHTML='<option value="">No category</option>'+cats().map(c=>'<option value="'+esc(c)+'">'+esc(c)+'</option>').join('')+'<option value="__new">+ New category…</option>';
+  $('fCat').value=val&&cats().includes(val)?val:'';
+  $('fCatNewWrap').hidden=true;$('fCatNew').value='';
+}
 function catOk(t){return catFilter==='all'||(catFilter===NOCAT?!(t.cat||'').trim():(t.cat||'').trim()===catFilter);}
 function matches(t){return (filter==='all'||t.freq===filter)&&catOk(t);}
 const CAT_COLORS=['#1D5FE0','#7A5AC8','#1B8F86','#BF7A0E','#C24A86','#3B7452','#B3312A','#557790','#8A6D1E','#2E8BB8'];
@@ -691,8 +729,8 @@ function renderChips(all){
   $('catNav').innerHTML='<button class="nv" data-cat="all" aria-selected="'+(catFilter==='all')+'">All categories<span class="n">'+inFreq.length+'</span></button>'+
     cs.map(c=>'<button class="nv" data-cat="'+esc(c)+'" aria-selected="'+(catFilter===c)+'"><span class="dot" style="background:'+catColor(c)+';opacity:1"></span>'+esc(c)+'<span class="n">'+cnt(c)+'</span></button>').join('')+
     (noCat&&cs.length?'<button class="nv" data-cat="'+NOCAT+'" aria-selected="'+(catFilter===NOCAT)+'"><span class="dot"></span>No category<span class="n">'+cnt(NOCAT)+'</span></button>':'')+
-    (cs.length?'':'<div class="navhint">Give a task a category to sort it into a folder here.</div>');
-  $('catList').innerHTML=cs.map(c=>'<option value="'+esc(c)+'">').join('');
+    (cs.length?'':'<div class="navhint">Create categories to sort tasks into folders.</div>')+
+    '<button class="nv" id="manageCatsBtn" data-managecats="1">+ New / edit categories</button>';
 }
 function renderList(allTasks,today){
   const all=allTasks.filter(x=>matches(x.t));
@@ -856,7 +894,7 @@ function openEdit(id,date){
   $('fTitle').value=editing?editing.title:'';
   $('fFreq').value=editing?editing.freq:(filter!=='all'?filter:'once');
   $('fNotes').value=editing?(editing.notes||''):'';
-  $('fCat').value=editing?(editing.cat||''):(catFilter!=='all'&&catFilter!==NOCAT?catFilter:'');
+  fillCatSelect($('fCat'),editing?(editing.cat||''):(catFilter!=='all'&&catFilter!==NOCAT?catFilter:''));
   $('fTime').value=editing?(editing.time||''):'';
   $('fRemind').value=String(editing&&editing.remind!=null?editing.remind:-1);
   if(editing)$('fDue').value=editing.freq==='once'?(editing.due||''):period(editing,today).due;
@@ -895,8 +933,8 @@ $('editForm').addEventListener('submit',e=>{
   let t=editing;
   if(!t){t={id:uid(),created:new Date().toISOString(),history:[],completedAt:null};state.tasks.push(t);}
   const wasOnce=t.freq==='once';
-  t.title=title;t.notes=notes;t.time=time;t.remind=remind;t.cat=$('fCat').value.trim().replace(/\s+/g,' ');
-  {const ex=state.tasks.filter(x=>x!==t).map(x=>(x.cat||'').trim()).find(c=>c&&c.toLowerCase()===t.cat.toLowerCase());if(ex)t.cat=ex;}
+  t.title=title;t.notes=notes;t.time=time;t.remind=remind;
+  {let c=$('fCat').value;if(c==='__new')c=addCat($('fCatNew').value)||'';t.cat=c;}
   if(freq==='once'){
     t.freq='once';t.due=due||null;delete t.anchor;delete t.seenIndex;
   }else{
@@ -1001,6 +1039,43 @@ async function downloadIcs(tasks,base){
   toast('Opening '+count+' event(s) for Calendar…');
 }
 $('icsAllBtn').onclick=()=>downloadIcs(state.tasks.filter(matches),'battle-rhythm');
+
+/* ---------- category manager ---------- */
+function renderCatRows(){
+  const cs=cats();
+  $('catRows').innerHTML=cs.length?cs.map(c=>{const n=state.tasks.filter(t=>t.cat===c).length;
+    return '<div class="catrow"><span class="dot" style="background:'+catColor(c)+'"></span><input type="text" value="'+esc(c)+'" data-rename="'+esc(c)+'" aria-label="Category name"><span class="n">'+n+(n===1?' task':' tasks')+'</span><button type="button" class="btn danger" data-delcat="'+esc(c)+'">Delete</button></div>';}).join(''):'<p class="hint">No categories yet.</p>';
+}
+function openCats(){if(isNarrow())setNav(false);renderCatRows();$('catScrim').classList.add('open');}
+$('catClose').onclick=()=>{$('catScrim').classList.remove('open');render();};
+$('catScrim').addEventListener('click',e=>{if(e.target===$('catScrim')){$('catScrim').classList.remove('open');render();}});
+function createFromBox(){const c=addCat($('catNewName').value);if(!c)return;$('catNewName').value='';renderCatRows();render();toast('Category “'+c+'” added');}
+$('catNewBtn').onclick=createFromBox;
+$('catNewName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();createFromBox();}});
+$('catRows').addEventListener('change',e=>{
+  const inp=e.target.closest('[data-rename]');if(!inp)return;
+  const old=inp.dataset.rename,nu=inp.value.trim().replace(/\s+/g,' ');
+  if(!nu||nu===old){inp.value=old;return;}
+  const clash=state.categories.find(c=>c!==old&&c.toLowerCase()===nu.toLowerCase());
+  if(clash&&!confirm('“'+clash+'” already exists. Merge “'+old+'” into it?')){inp.value=old;return;}
+  const target=clash||nu;
+  for(const t of state.tasks)if(t.cat===old)t.cat=target;
+  state.categories=state.categories.filter(c=>c!==old);if(!clash)state.categories.push(nu);
+  state.categories.sort((a,b)=>a.localeCompare(b));
+  if(catFilter===old)catFilter=target;save();renderCatRows();render();toast('Renamed to “'+target+'”');
+});
+$('catRows').addEventListener('click',e=>{
+  const b=e.target.closest('[data-delcat]');if(!b)return;const c=b.dataset.delcat;
+  const n=state.tasks.filter(t=>t.cat===c).length;
+  if(!confirm('Delete the category “'+c+'”?'+(n?' Its '+n+' task(s) are kept and become “No category”.':'')))return;
+  for(const t of state.tasks)if(t.cat===c)t.cat='';
+  state.categories=state.categories.filter(x=>x!==c);if(catFilter===c)catFilter='all';
+  save();renderCatRows();render();
+});
+$('fCat').addEventListener('change',()=>{const on=$('fCat').value==='__new';$('fCatNewWrap').hidden=!on;if(on)setTimeout(()=>$('fCatNew').focus(),50);});
+function addFromTaskBox(){const c=addCat($('fCatNew').value);if(!c)return;fillCatSelect($('fCat'),c);render();}
+$('fCatAdd').onclick=addFromTaskBox;
+$('fCatNew').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addFromTaskBox();}});
 
 /* ---------- category print / PDF ---------- */
 const WD=d=>parse(d).toLocaleDateString(undefined,{weekday:'long'});
@@ -1161,6 +1236,7 @@ $('importFile').addEventListener('change',async e=>{
     if(!confirm('Replace your current '+state.tasks.length+' task(s) with the '+data.tasks.length+' task(s) in this backup?'))return;
     for(const t of data.tasks){t.history=Array.isArray(t.history)?t.history:[];}
     if(!data.fired)data.fired={};
+    normCats(data);
     state=data;save();rollover();render();$('menuScrim').classList.remove('open');toast('Backup restored');
   }catch(err){alert('That file is not a Battle Rhythm backup.');}
 });
@@ -1172,6 +1248,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('.scrim'))return;
   const tg=e.target.closest('[data-toggle]');if(tg){toggle(tg.dataset.toggle);return;}
   const ed=e.target.closest('[data-edit]');if(ed){e.stopPropagation();openEdit(ed.dataset.edit);return;}
+  if(e.target.closest('[data-managecats]')){openCats();return;}
   const pc=e.target.closest('[data-printcat]');if(pc){e.stopPropagation();openPrint(pc.dataset.printcat);return;}
   const ct=e.target.closest('[data-cat]');if(ct){catFilter=ct.dataset.cat;saveUi();render();if(isNarrow())setNav(false);return;}
   const gb=e.target.closest('[data-group]');if(gb){groupBy=gb.dataset.group;saveUi();render();return;}
